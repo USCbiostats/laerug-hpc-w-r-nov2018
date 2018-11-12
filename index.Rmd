@@ -66,11 +66,30 @@ Loosely, from R's perspective, we can think of HPC in terms of two, maybe three 
 
 ## Parallel computing
 
-```{r, echo=FALSE, fig.cap="Flynn's Classical Taxonomy ([Introduction to Parallel Computing, Blaise Barney, Lawrence Livermore National Laboratory](https://computing.llnl.gov/tutorials/parallel_comp/#Whatis))", fig.align='center'}
+```{r, echo=FALSE, fig.cap="Flynn's Classical Taxonomy ([Blaise Barney, **Introduction to Parallel Computing**, Lawrence Livermore National Laboratory](https://computing.llnl.gov/tutorials/parallel_comp/))", fig.align='center'}
 knitr::include_graphics("fig/flynnsTaxonomy.gif")
 ```
 
 We will be focusing on the **S**ingle **I**nstruction stream **M**ultiple **D**ata stream
+
+## Parallel computing
+
+### Serial vs Parallel
+
+<p style="text-align:center;">
+<img src="fig/serialProblem.gif" style="width:45%;">
+<img src="fig/parallelProblem.gif" style="width:45%;">
+source: [Blaise Barney, **Introduction to Parallel Computing**, Lawrence Livermore National Laboratory](https://computing.llnl.gov/tutorials/parallel_comp/)
+</p>
+
+## Parallel computing
+
+```{r nodes-network}
+knitr::include_graphics("fig/nodesNetwork.gif")
+```
+
+source: [Blaise Barney, **Introduction to Parallel Computing**, Lawrence Livermore National Laboratory](https://computing.llnl.gov/tutorials/parallel_comp/)
+
 
 ## Some vocabulary for HPC
 
@@ -122,28 +141,42 @@ we'll focus on the following R-packages for **explicit parallelism**:
 *   [**parallel**](https://cran.r-project.org/package=parallel): R package that provides '[s]upport for parallel computation,
     including random-number generation'.
 
-*   [**foreach**](https://cran.r-project.org/package=foreach): R package for 'general iteration over elements' in parallel fashion.
-
 *   [**future**](https://cran.r-project.org/package=future): '[A] lightweight and
     unified Future API for sequential and parallel processing of R
-    expression via futures.' (won't cover here)
+    expression via futures.'
     
-Implicit parallelism, on the other hand, are out-of-the-box tools that allow the
-programmer not to worry about parallelization, e.g. such as
-[**gpuR**](https://cran.r-project.org/package=gpuR) for Matrix manipulation using
-GPU, [**tensorflow**](https://cran.r-project.org/package=tensorflow)
-
----
-
-And there's also a more advanced set of options
-
 *   [**Rcpp**](https://cran.r-project.org/package=Rcpp) + [OpenMP](https://www.openmp.org):
     [Rcpp](https://cran.r-project.org/package=Rcpp) is an R package for integrating
     R with C++, and OpenMP is a library for high-level parallelism for C/C++ and
     Fortran.
+    
+---
 
-*   A ton of other type of resources, notably the tools for working with 
-    batch schedulers such as Slurm, HTCondor, etc.
+Others but not used here
+
+*   [**foreach**](https://cran.r-project.org/package=foreach) for iterating through lists in parallel.
+
+*   [**Rmpi**](https://cran.r-project.org/package=Rmpi) for creating MPI clusters.
+
+And tools for implicit parallelism (out-of-the-box tools that allow the
+programmer not to worry about parallelization):
+
+*   [**gpuR**](https://cran.r-project.org/package=gpuR) for Matrix manipulation using
+GPU
+
+*   [**tensorflow**](https://cran.r-project.org/package=tensorflow) an R interface to
+[TensorFlow](https://www.tensorflow.org/).
+
+A ton of other type of resources, notably the tools for working with 
+batch schedulers such as [Slurm](http://slurm.schedmd.com), and
+[HTCondor](https://research.cs.wisc.edu/htcondor/).
+
+## {data-background=#515A5A}
+
+<p style="color:white;text-align:center;">
+![](https://media.giphy.com/media/l4FGwBxQ8VjtzNcv6/giphy.gif){style="width:400px;"}<br>
+Are you ready to speed up?
+</p>
 
 ## Parallel workflow
 
@@ -193,18 +226,9 @@ And there's also a more advanced set of options
 
 -   Not available on Windows.
 
----
+Other `makeCluster`: passed to [**snow**](https://cran.r-project.org/package=snow)
+(Simple Network of Workstations)
 
--   Other `makeCluster`: passed to [**snow**](https://cran.r-project.org/package=snow)
-    (Simple Network of Workstations)
-
-Take a look at the [foreach](https://cran.r-project.org/package=foreach),
-[Rmpi](https://cran.r-project.org/package=Rmpi), and
-[future](https://cran.r-project.org/package=future) R packages.
-
-## {data-background=#515A5A}
-
-<text style="color:white;">Let's get started!</text>
 
 ## Ex 1: Parallel RNG with `makePSOCKCluster`
 
@@ -325,9 +349,11 @@ ans0 - ans1 # A matrix of zeros
 # stopCluster(cl) no need of doing this anymore
 ```
 
-##
+## {data-background=#515A5A}
 
-### RcppArmadillo and OpenMP
+<p style="text-align:center;color:white;font-size:200%;">
+RcppArmadillo + OpenMP<br>=<br><img src="https://media.giphy.com/media/WUq1cg9K7uzHa/giphy.gif" style="width:400px">
+</p>
 
 ## RcppArmadillo and OpenMP
 
