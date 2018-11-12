@@ -1,0 +1,426 @@
+---
+title: "A brief introduction to using R for high-performance computing"
+author: "George G. Vega Yon<br><a href=\"https://ggvy.cl\" target=\"_blank\" style=\"color: black;\">ggvy.cl</a><br>USC Integrative Methods of Analysis for Genetic Epidemiology (IMAGE)<br>Department of Preventive Medicine"
+date: "September 13, 2018"
+output:
+  revealjs::revealjs_presentation:
+    self_contained: true
+    transition: fade
+    theme: simple
+    reveal_options:
+      controls: false
+      slideNumber: true
+      margin: 0.05
+      width: 1024
+      height: 780
+    css: "slides.css"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, fig.width=6,
+  fig.align = "center"
+  )
+```
+
+
+## Today's Talk
+
+1.  Social Mimicry
+    
+2.  Small network (statistics)
+
+<p class="fragment fade-in">But first, a detour!</p>
+
+## Ranting about R vs SAS
+
+We will look at the following myths:
+
+1.  _"SAS is easier than R"_
+
+2.  _"SAS is required for drug tests by the FDA"_
+
+3.  _"R is cool... but it can't handle data out-of-memory like SAS"_
+
+4.  _"SAS has a higher demand than R in the job market"_
+
+## Ranting about R vs SAS
+
+Myth: _"SAS is easier than R"_
+
+Reallity: Take a look at this simple task of importing a CSV file with a header
+
+\tiny
+
+```r
+dataset <- read.csv("mydata.csv")
+```
+
+```sas
+PROC IMPORT DATAFILE = "mydata.csv" GETNAMES = yes OUT = dataset REPLACE;
+  getmames = yes;
+run;
+```
+
+\normalsize
+
+You be the judge...
+
+
+## Ranting about R vs SAS
+
+Myth: _"SAS is required for drug tests by the FDA"_
+
+
+---
+
+![](fig/wrong.gif){style="width:800px;"}
+
+## Ranting about R vs SAS 
+
+Myth: _"SAS is required for drug tests by the FDA"_
+
+Reallity:
+
+> FDA <span style="font-size:50px;font-weight:bold;">does not require use of any specific software for statistical analyses</span>, and statistical software
+is not explicitly discussed in Title 21 of the Code of Federal Regulations [e.g., in 21CFR part
+11]. However, the software package(s) used for statistical analyses should be fully documented
+in the submission, including version and build identification.
+--- [FDA, May 6, 2015](https://www.fda.gov/downloads/forindustry/datastandards/studydatastandards/ucm587506.pdf)
+
+
+---
+
+![](fig/open-fda.png){style="width:75%"}
+
+
+## Ranting about R vs SAS
+
+Myth: _"R is cool... but it can't handle data out-of-memory like SAS"_
+
+---
+
+![](fig/you-sure.gif){style="width:75%;"}
+
+## Ranting about R vs SAS
+
+Myth: _"R is cool... but it can't handle data out-of-memory like SAS"_
+
+Reallity: Just take a look at the [CRAN Task View for High Performance and Parallel Computing in R](https://cran.r-project.org/web/views/HighPerformanceComputing.html)
+
+[biglm](https://cran.r-project.org/package=biglm),
+[ff](https://cran.r-project.org/package=ff),
+[bigmemory](https://cran.r-project.org/package=bigmemory),
+[HadoopStreaming](https://cran.r-project.org/package=HadoopStreaming),
+[speedglm](https://cran.r-project.org/package=speedglm),
+[biglars](https://cran.r-project.org/package=biglars),
+[MonetDB.R](https://cran.r-project.org/package=MonetDB.R),
+[ffbase](https://cran.r-project.org/package=ffbase),
+[LaF](https://cran.r-project.org/package=LaF),
+[bigstatsr](https://cran.r-project.org/package=bigstatsr)
+
+## Ranting about R vs SAS
+
+Myth: _"SAS has a higher demand than R in the job market"_
+
+---
+
+![](fig/top-analytics-data-science-machine-learning-software-2018-3yrs-539.jpg){style="width:50%;"}
+
+Source: [KDnuggets](https://www.kdnuggets.com/2018/05/poll-tools-analytics-data-science-machine-learning-results.html)
+
+---
+
+![](fig/by_industry_graph-1-675x675.png){style="width:50%;"}
+
+Source: [Stackoverflow](https://stackoverflow.blog/2017/10/10/impressive-growth-r/)
+
+---
+
+As pointed out by [David Smith](https://ropensci.org/blog/2017/10/13/rprofile-david-smith/){target="_blank"} on ["Job trends for R and Python"](http://blog.revolutionanalytics.com/2017/02/job-trends-for-r-and-python.html){target="_blank"}
+
+![](fig/indeed-r-python-sas.png){class="img-std"}
+
+Source: [indeed.com's Job trends](https://www.indeed.com/jobtrends/q-R-statistics-q-SAS-statistics-q-python-statistics.html){target="_blank"}
+
+---
+
+![](fig/data-science-r-python-sas.png){class="img-std"}
+
+Source: [indeed.com's Job trends](https://www.indeed.com/jobtrends/q-R-statistics-q-SAS-statistics-q-python-statistics.html){target="_blank"}
+
+## Ranting about R vs SAS
+
+1.  <p class="fragment fade-in">_"SAS is uglier~~easier~~ than R"_</p>
+
+2.  <p class="fragment fade-in">_"SAS is **NOT** required for drug tests by the FDA"_</p>
+
+3.  <p class="fragment fade-in">_"R **is cool** ~~... but it can't~~ **AND CAN** handle data out-of-memory like SAS"_</p>
+
+4.  <p class="fragment fade-in">_"SAS has a ~~higher~~ **LOWER** demand than R in the job market"_</p>
+
+## Social Mimicry
+
+Context:
+
+-   <p class="fragment fade-in" data-fragment-index=1>We observe families during a meal.</p>
+
+-   <p class="fragment fade-in" data-fragment-index=2>For each family member, we timestamp the moment at which she/he took a bite (took the fork/spoon filled with food to her/his mouth).</p>
+
+-   <p class="fragment fade-in" data-fragment-index=3>Theory predicts the emergence of classes of automatic behavior as a response to others' bites (cues)</p>
+
+Two questions:
+
+<span class="fragment fade-in" data-fragment-index=4>Is there any synchrony (bite rate) amongst family members?</span>
+
+<span class="fragment fade-in"><span class="fragment fade-out">Is there any mimicry amonst family members?</span></span>
+
+---
+
+```{r example-of-dyad, echo=FALSE, cache=FALSE, fig.align='center', fig.cap="Simulated dyad", fig.height=4, out.width = "600px"}
+set.seed(21) 
+plot(biteme::simulate_dyad(rates = c(.8, .5)), lwd=10)
+```
+    
+So we have, $T_1 = \{t_1^1, t_1^2, t_1^3, t_1^4, t_1^5, t_1^6\}$, and
+$T_2 = \{t_2^1, t_2^2, t_2^3\}$
+    
+$$
+R(t_2^2, T_1) = t_1^3
+$$
+
+---
+
+Mathematically, we can describe the data as follows:
+
+* For each individual $i$ we observe a vector $T_i \equiv\{t^i_1, t^i_2,\dots\}$ with $i$'s bites timestamps. You can think of this as a Poisson process.
+
+* Let $n_i$ denote the size of $T_i$.
+
+* Also, define the function $R:T_i\times T_j\mapsto T_j$ as that which returns the **leftmost close** bite of $j$ to $i$, i.e. the inmediate bite of $j$ before $i$ took a particular bite:
+
+$$
+R(t_i^n, T_j) = \left\{\begin{array}{l}
+\mbox{Undefined},\quad\mbox{if }(\forall t_j^n\in T_j) \exists t_i^m\in T_i \mbox{ s.th. }t_i^m\in(t_j^n,t_i^n) \\
+\arg\max_{\{t_j^n:t_j^n\in T_j, t_j^n \leq t_i^n\}}t_i^n - t_j^n,\quad\mbox{otherwise.}
+\end{array}\right.
+$$
+  
+  For now we will focus on the cases where this is defined.
+
+---
+
+*   A possible statistic to test this is to take the average time gap between $i$ and $j$'s
+    bite, formally, assuming $R(t, T_j)$ is defined for all $t\in T_i$, we have
+    
+    $$
+    S_{ij} = \frac{1}{n_i}\sum_{t\in T_i}(t - R(t, T_j))
+    $$
+
+*   Given the data structure, we can use permutations to build a null distribution.
+
+
+## Permuting time intervals
+
+*   Imagine we observe the followin: $T_{a} = \{0, 1, 3, 6\}$, then we have 
+    $3! = 6$ total permutations as what is swapped are time intervals.
+    
+```{r example-permutations, echo=FALSE, cache=FALSE, fig.cap="Distribution of permuted set (50,000 permutations).", out.width="450px"}
+library(biteme)
+# Function to encode the shuffle
+shuffle_wrap <- function(dat) {
+  paste0(shuffle_bites(dat)[,1], collapse="")
+}
+
+# Fake data. This has only 6 possible permutations
+dat <- cbind(
+  time = c(0, 1, 3, 6),
+  ids  = rep(1, 4)
+)
+
+# Tabulating and plotting the permutations
+n <- 5e4
+set.seed(111224)
+ans <- replicate(n, shuffle_wrap(dat))
+ans <- table(ans)/n
+
+# ans
+# ans
+#    0136    0146    0236    0256    0346    0356
+# 0.16842 0.16622 0.16618 0.16794 0.16566 0.16558
+
+# Plotting the distribution
+barplot(ans)
+```
+
+---
+
+![](fig/perm-test.png){style="width: 75%;"}
+
+
+## Questions for Part 1
+
+-   <p class="fragment fade-in">Going back to the case of <strong>Undefined</strong> left most close time, how can we use that information in our model? (example with 1,000 vs 2)</p>
+
+-   <p class="fragment fade-in">In some cases, subjects take relatively long pauses during the meal. What should we do with the *solo* time of the other dyad?</p>
+
+-   <p class="fragment fade-in">Another approach could be using a EM algorithm (the missing data is the failed mimic bite), and look at the p-values of the missing data parameter (this implies modeling the data as a Poisson process with a probit component [to bite or not to bite]).</p>
+
+
+## Part 2: Small Network
+
+Context
+
+*   <p class="fragment fade-in">We observe groups of individuals, teams performing different tasks.</p>
+
+*   <p class="fragment fade-in">Each group is composed of between 3 to 5 members.</p>
+
+*   <p class="fragment fade-in">The core question</p>
+
+> <p class="fragment fade-in">How does your perception of the social network (your cognitive social structure)
+in which you are embedded impacts your and your network's performance?</p>
+
+## Cognitive Social Structures
+
+> Alice, Bob, and Charlie are all friends. Thus, there are three separate representations of their network. If they each believe they are friends with the other two, but that the other two are not friends, then all three representations are distinct. -- From [wikipedia](https://en.wikipedia.org/wiki/Cognitive_social_structures#Overview)
+
+---
+
+*   Our current approach: We defined an statistic that measures some sort of correlation:
+    
+    $$
+    S_T\equiv \frac{1}{n(n-1)}\sum_{\{(i, j):(i,j)\in T, i<j\}}H(i,j)
+    $$
+    
+    Where $H(i,j)$ is the hamming distance between $i$ and $j$'s perceived social structures.
+
+*   $S_T\in[0,1]$, where 1 means _perfect correlation_ (all subjects have the exact same perception of the graph.)
+
+*   I call this cognitive dissonance (is this OK prof. de la Haye?).
+
+## A simple example
+
+We will perform the following simulation experiment
+
+1.  Draw a random graph of size $n$
+
+2.  Generate $n$ replicates of such graph, and rewire the endpoints with probability $p$
+
+3.  Given the set of $n$ graphs, compute $S_T$
+
+---
+
+```{r net-sims}
+library(magrittr)
+
+set.seed(1)
+worst <- list(
+  matrix(rep(0,16), ncol=4),
+  matrix(rep(1,16), ncol=4) %>% `diag<-`(0),
+  matrix(rep(0,16), ncol=4),
+  matrix(rep(1,16), ncol=4) %>% `diag<-`(0)
+)
+
+best <- runif(16) %>%
+  `>`(.6) %>%
+  as.integer %>%
+  matrix(ncol=4) %>%
+  list %>% rep(4)
+```
+
+```{r computing, eval=FALSE}
+
+statistic(best)
+statistic(worst)
+```
+
+
+```{r experiments, cache=TRUE}
+source("netcor-test.R")
+sizes <- c(3, 4, 5)
+nsims <- 1000
+prob  <- c(.1, .25, .5)
+
+perturb <- function(x, p) {
+  
+  p <- as.integer(runif(length(x)) < p)
+  x[] <- x[]*(1-p) + (1 - x[])*p
+  
+  x
+  
+}
+
+# Function to compute simulations
+simgraph <- function(n, p) {
+  
+  # Baseline graph
+  x <- (runif(n*n) > .5) %>% as.integer %>%
+    matrix(ncol=n)
+  
+  # Generating networks and computing statistics
+  ans<-replicate(n, netdiffuseR::rewire_graph(x, p, both.ends = TRUE), simplify = FALSE)  %>%
+    statistic()
+  ans$score
+}
+
+combinations <- expand.grid(n = sizes, p = prob)
+
+set.seed(2123)
+library(magrittr)
+cl <- parallel::makeForkCluster(9)
+ans <- parallel::clusterMap(cl, function(n, p) {
+  data.frame(
+    size  = n,
+    prob  = p,
+    stat  = replicate(nsims, simgraph(n, p)),
+    score = rbinom(nsims, 5, 1-p)
+  )
+  }, n = combinations$n, p=combinations$p, .scheduling = "static"
+  )
+parallel::stopCluster(cl)
+```
+
+```{r plot-experiments, out.width="600px", fig.cap="Distribution of $S_T$"}
+ans <- do.call(rbind, ans)
+ans$size <- paste("Size:", ans$size)
+ans$prob <- paste("Pr():", ans$prob)
+boxplot(
+  stat ~ size*prob, data=ans, sep="\n", las=2
+  )
+
+```
+
+---
+
+A nïve way to correct this, is using an orthogonal projection matrix on $n$, in other words, remove all that is correlated:
+
+$$
+S_T' = \mathbf{M}_n S_T
+$$
+
+Where $\mathbf{M}_n = (I_n - n(n^\mathbf{t}n)n^\mathbf{t})$
+
+---
+
+```{r plot-experiments2, out.width="600px", fig.cap="Distribution of $S_T$ using the orthogonal projection onto $n$."}
+ans$n <- as.integer(gsub(".+\\s+", "", ans$size))
+
+mod <- lm(stat ~0+ n + I(n^2) + I(n^3), data = ans)
+ans$stat_adj <- ans$stat - predict(mod, type = "response")
+boxplot(
+  stat_adj ~ size*prob, data=ans, sep="\n", las=2
+  )
+```
+
+
+
+## Questions
+
+-   <p class="fragment fade-in">How can we correct the small sample bias?</p>
+
+-   <p class="fragment fade-in">Since networks are small, perhaps we could approximate via simulation (brute-force). Opinons?</p>
+
+-   <p class="fragment fade-in">An alternative, use exact distributions. We could in principle assume that dyads are independent, and take each observed 0/1 distributed bernoulli with parameter $p_i$, where $i$ index individuals. We would still need to make assumptions to compute $p_i$.</p>
+
