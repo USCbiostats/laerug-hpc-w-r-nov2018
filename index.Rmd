@@ -325,7 +325,80 @@ ans0 - ans1 # A matrix of zeros
 # stopCluster(cl) no need of doing this anymore
 ```
 
+##
+
+### RcppArmadillo and OpenMP
+
+## RcppArmadillo and OpenMP
+
+*   Friendlier than [**RcppParallel**](http://rcppcore.github.io/RcppParallel/)...
+    at least for 'I-use-Rcpp-but-don't-actually-know-much-about-C++' users (like myself!).
+
+*   Must run only 'Thread-safe' calls, so calling R within parallel blocks can cause
+    problems (almost all the time).
+    
+*   Use `arma` objects, e.g. `arma::mat`, `arma::vec`, etc. Or, if you are used to them
+    `std::vector` objects as these are thread safe.
+
+---
+
+*   Pseudo Random Number Generation is not very straight forward... But C++11 has
+    a [nice set of functions](http://en.cppreference.com/w/cpp/numeric/random) that can be used together with OpenMP
+
+*   Need to think about how processors work, cache memory, etc. Otherwise you could
+    get into trouble... if your code is slower when run in parallel, then you probably
+    are facing [false sharing](https://software.intel.com/en-us/articles/avoiding-and-identifying-false-sharing-among-threads)
+    
+*   If R crashes... try running R with a debugger (see
+    [Section 4.3 in Writing R extensions](https://cran.r-project.org/doc/manuals/r-release/R-exts.html#Checking-memory-access)):
+    
+    ```shell
+    ~$ R --debugger=valgrind
+    ```
+
+## RcppArmadillo and OpenMP workflow
+
+1.  Tell Rcpp that you need to include that in the compiler:
+    
+    ```cpp
+    #include <omp.h>
+    // [[Rcpp::plugins(openmp)]]
+    ```
+
+2.  Within your function, set the number of cores, e.g
+
+    ```cpp
+    // Setting the cores
+    omp_set_num_threads(cores);
+    ```
+
+## RcppArmadillo and OpenMP workflow
+
+3.  Tell the compiler that you'll be running a block in parallel with openmp
+    
+    ```cpp
+    #pragma omp [directives] [options]
+    {
+      ...your neat parallel code...
+    }
+    ```
+    
+    You'll need to specify how OMP should handle the data:
+    
+    *   `shared`: Default, all threads access the same copy.
+    *   `private`: Each thread has its own copy, uninitialized.
+    *   `firstprivate` Each thread has its own copy, initialized.
+    *   `lastprivate` Each thread has its own copy. The last value used is returned.
+    
+    
+    Setting `default(none)` is a good practice.
+    
+3.  Compile!
+
+
 ## Ex 5: RcppArmadillo + OpenMP
+
+Our own version of the `dist` function... but in parallel!
 
 ```{Rcpp dist-code, cache=TRUE, echo=TRUE}
 #include <omp.h>
@@ -369,10 +442,10 @@ arma::mat dist_par(const arma::mat & X, int cores = 1) {
 
 ---
 
-```{r dist-dat, dependson=-1, echo=TRUE, cache=TRUE}
+```{r dist-dat, echo=TRUE, cache=TRUE}
 # Simulating data
 set.seed(1231)
-K <- 1000
+K <- 5000
 n <- 500
 x <- matrix(rnorm(n*K), ncol=K)
 
@@ -387,9 +460,9 @@ table(as.matrix(dist(x)) - dist_par(x, 4)) # Only zeros
 rbenchmark::benchmark(
   dist(x),                 # stats::dist
   dist_par(x, cores = 1),  # 1 core
-  dist_par(x, cores = 2),  # 2 cores
-  dist_par(x, cores = 4), #  4 cores
-  replications = 10, order="elapsed"
+  dist_par(x, cores = 4),  # 2 cores
+  dist_par(x, cores = 8), #  4 cores
+  replications = 1, order="elapsed"
 )[,1:4]
 ```
 
