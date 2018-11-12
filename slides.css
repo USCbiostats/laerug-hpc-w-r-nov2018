@@ -1,5 +1,18 @@
 p {
   text-align: left;
+  font-size: 90% !important;
+}
+
+.reveal blockquote {
+  width: 90%;  
+}
+
+.reveal section img {
+  border: 2px rgba(0, 0, 0, .5);
+}
+
+code.sourceCode {
+  font-size: 90% !important;
 }
 
 code {
@@ -11,7 +24,7 @@ code {
 
 .reveal h2, .reveal h3 {
   color: #21908CFF;
-  font-weight: normal;
+  font-weight: bold;
 }
 
 .reveal strong, .reveal b {

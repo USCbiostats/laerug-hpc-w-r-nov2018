@@ -14,6 +14,7 @@ output:
       width: 1024
       height: 780
     css: "slides.css"
+    slide_level: 2
 editor_options: 
   chunk_output_type: console
 ---
@@ -26,401 +27,480 @@ knitr::opts_chunk$set(
 ```
 
 
-## Today's Talk
+## Agenda
 
-1.  Social Mimicry
+1.  High-Performance Computing: An overview
     
-2.  Small network (statistics)
+2.  Parallel computing in R
+    
+3.  Extended examples
 
-<p class="fragment fade-in">But first, a detour!</p>
 
-## Ranting about R vs SAS
+## High-Performance Computing: An overview
 
-We will look at the following myths:
+Loosely, from R's perspective, we can think of HPC in terms of two, maybe three things:
 
-1.  _"SAS is easier than R"_
+1.  Big data: How to work with data that doesn't fit your computer
 
-2.  _"SAS is required for drug tests by the FDA"_
+2.  Parallel computing: How to take advantage of multiple core systems
 
-3.  _"R is cool... but it can't handle data out-of-memory like SAS"_
+3.  Compiled code: Write your own low-level code (if R doesn't has it yet...)
 
-4.  _"SAS has a higher demand than R in the job market"_
+(Checkout [CRAN Task View on HPC](https://cran.r-project.org/web/views/HighPerformanceComputing.html))
 
-## Ranting about R vs SAS
 
-Myth: _"SAS is easier than R"_
+## Big Data
 
-Reallity: Take a look at this simple task of importing a CSV file with a header
+*   Buy a bigger computer/RAM memory (not the best solution!)
+    
+*   Use out-of-memory storage, i.e., don't load all your data in the RAM. e.g.
+    The [bigmemory](https://CRAN.R-project.org/package=bigmemory),
+    [data.table](https://CRAN.R-project.org/package=data.table),
+    [HadoopStreaming](https://CRAN.R-project.org/package=HadoopStreaming) R packages
+    
+*   Efficient algorithms for big data, e.g.: [biglm](https://cran.r-project.org/package=biglm),
+    [biglasso](https://cran.r-project.org/package=biglasso)
 
-\tiny
+*   Store it more efficiently, e.g.: Sparse Matrices (take a look at the `dgCMatrix` objects
+    from the [Matrix](https://CRAN.R-project.org/package=Matrix) R package)
 
+## Parallel computing
+
+```{r, echo=FALSE, fig.cap="Flynn's Classical Taxonomy ([Introduction to Parallel Computing, Blaise Barney, Lawrence Livermore National Laboratory](https://computing.llnl.gov/tutorials/parallel_comp/#Whatis))", fig.align='center'}
+knitr::include_graphics("fig/flynnsTaxonomy.gif")
+```
+
+We will be focusing on the **S**ingle **I**nstruction stream **M**ultiple **D**ata stream
+
+## Some vocabulary for HPC
+
+In raw terms
+
+*   Supercomputer: A **single** big machine with thousands of cores/gpus.
+
+*   High Performance Computing (HPC): **Multiple** machines within
+    a **single** network.
+    
+*   High Throughput Computing (HTC): **Multiple** machines across **multiple**
+    networks.
+    
+You may not have access to a supercomputer, but certainly HPC/HTC clusters are
+more accesible these days, e.g. AWS provides a service to create HPC clusters
+at a low cost (allegedly, since nobody understands how pricing works)
+
+## GPU vs CPU
+
+```{r gpu-cpu, echo=FALSE, fig.cap="[NVIDIA Blog](http://www.nvidia.com/object/what-is-gpu-computing.html)", fig.align='center'}
+knitr::include_graphics("fig/cpuvsgpu.jpg")
+nnodes <- 4L
+```
+
+*   Why use OpenMP if GPU is _suited to compute-intensive operations_? Well, mostly because
+    OpenMP is **VERY** easy to implement (easier than CUDA, which is the easiest way to use GPU).
+
+## When is it a good idea?
+
+```{r good-idea, echo=FALSE, fig.cap="Ask yourself these questions before jumping into HPC!", fig.align='center', out.width="85%"}
+knitr::include_graphics("fig/when_to_parallel.svg")
+```
+
+
+    
+
+## Parallel computing in R
+
+While there are several alternatives (just take a look at the
+[High-Performance Computing Task View](https://cran.r-project.org/web/views/HighPerformanceComputing.html)),
+we'll focus on the following R-packages for **explicit parallelism**:
+
+*   **parallel**: R package that provides '[s]upport for parallel computation,
+    including random-number generation'.
+
+*   **rslurm**: 'Send long-running or parallel jobs to a Slurm workload manager (i.e. cluster) using the slurm_call or slurm_apply functions.'
+    
+Implicit parallelism, on the other hand, are out-of-the-box tools that allow the
+programmer not to worry about parallelization, e.g. such as
+[**gpuR**](https://cran.r-project.org/package=gpuR) for Matrix manipulation using
+GPU, [**tensorflow**](https://cran.r-project.org/package=tensorflow)
+
+## Parallel workflow
+
+(Usually) We do the following:
+
+1.  Create a `PSOCK/FORK` (or other) cluster using `makePSOCKCluster`/`makeForkCluster`
+    (or `makeCluster`)
+    
+2.  Copy/prepare each R session (if you are using a `PSOCK` cluster):
+
+    a.  Copy objects with `clusterExport`
+
+    b.  Pass expressions with `clusterEvalQ`
+
+    c.  Set a seed
+
+3.  Do your call: `parApply`, `parLapply`, etc. 
+
+4.  Stop the cluster with `clusterStop`
+
+
+## Types of clusters: PSOCK
+
+-   Can be created with `makePSOCKCluster`
+
+-   Creates brand new R Sessions (so nothing is inherited from the master), e.g.
+    
+    ```r
+    # This creates a cluster with 4 R sessions
+    cl <- makePSOCKCluster(4)
+    ```
+
+-   Child sessions are connected to the master session via Socket connections
+
+-   Can be created outside of the current computer, i.e. accross multiple computers!
+
+## Types of clusters: Fork
+
+-   Fork Cluster `makeForkCluster`:
+
+-   Uses OS [Forking](https://en.wikipedia.org/wiki/Fork_(system_call)),
+
+-   Copies the current R session locally (so everything is inherited from
+    the master up to that point).
+    
+-   Data is only duplicated if it is altered (need to double check when this happens!)
+
+-   Not available on Windows.
+
+---
+
+-   Other `makeCluster`: passed to [**snow**](https://cran.r-project.org/package=snow)
+    (Simple Network of Workstations)
+
+Take a look at the [foreach](https://cran.r-project.org/package=foreach),
+[Rmpi](https://cran.r-project.org/package=Rmpi), and
+[future](https://cran.r-project.org/package=future) R packages.
+    
+## parallel example 1: Parallel RNG
+
+```{r parallel-ex-psock, echo=TRUE}
+# 1. CREATING A CLUSTER
+library(parallel)
+cl <- makePSOCKcluster(nnodes)    
+
+# 2. PREPARING THE CLUSTER
+clusterSetRNGStream(cl, 123) # Equivalent to `set.seed(123)`
+
+# 3. DO YOUR CALL
+ans <- parSapply(cl, 1:nnodes, function(x) runif(1e3))
+(ans0 <- var(ans))
+```
+
+----
+
+Making sure is reproducible
+
+```{r parallel-ex-psock-cont, echo=TRUE}
+# I want to get the same!
+clusterSetRNGStream(cl, 123)
+ans1 <- var(parSapply(cl, 1:nnodes, function(x) runif(1e3)))
+
+# 4. STOP THE CLUSTER
+stopCluster(cl)
+
+all.equal(ans0, ans1) # All equal!
+```
+
+## parallel example 1: Parallel RNG (cont'd)
+
+In the case of `makeForkCluster`
+
+```{r parallel-ex-fork, echo=TRUE, eval = TRUE}
+# 1. CREATING A CLUSTER
+library(parallel)
+
+# The fork cluster will copy the -nsims- object
+nsims <- 1e3
+cl    <- makeForkCluster(2)    
+
+# 2. PREPARING THE CLUSTER
+clusterSetRNGStream(cl, 123)
+
+# 3. DO YOUR CALL
+ans <- do.call(cbind, parLapply(cl, 1:2, function(x) {
+  runif(nsims) # Look! we use the nsims object!
+               # This would have fail in makePSOCKCluster
+               # if we didn't copy -nsims- first.
+  }))
+
+(ans0 <- var(ans))
+```
+
+---
+
+Again, we want to make sure this is reproducible
+
+```{r parallel-ex-fork-cont, echo=TRUE}
+# Same sequence with same seed
+clusterSetRNGStream(cl, 123)
+ans1 <- var(do.call(cbind, parLapply(cl, 1:2, function(x) runif(nsims))))
+
+ans0 - ans1 # A matrix of zeros
+
+# 4. STOP THE CLUSTER
+stopCluster(cl)
+```
+
+## {data-background=#515A5A}
+
+```{r what-did-you-said, out.width="80%"}
+knitr::include_graphics("fig/what-did-you-said.gif")
+```
+
+
+<!-- ![](){style="width:600px;"} -->
+
+<p style="color:white;">Well, if you are a MacOS/Linux user, there's a simplier way of doing this...</p>
+
+
+## parallel example 1: Parallel RNG (cont'd 2)
+
+In the case of `mclapply`, the forking (cluster creation) is done on the fly!
+
+```{r parallel-ex-mclapply, echo=TRUE, eval = TRUE}
+# 1. CREATING A CLUSTER
+library(parallel)
+
+# The fork cluster will copy the -nsims- object
+nsims <- 1e3
+
+# 2. PREPARING THE CLUSTER
+set.seed(123) 
+
+# 3. DO YOUR CALL
+ans <- do.call(cbind, mclapply(1:2, function(x) runif(nsims)))
+
+(ans0 <- var(ans))
+```
+
+---
+
+Again, we want to make sure this is reproducible
+
+```{r parallel-ex-mclapply-cont, echo=TRUE}
+# Same sequence with same seed
+set.seed(123) 
+ans1 <- var(do.call(cbind, mclapply(1:2, function(x) runif(nsims))))
+
+ans0 - ans1 # A matrix of zeros
+
+# 4. STOP THE CLUSTER
+# stopCluster(cl) no need of doing this anymore
+```
+
+---
+
+## parallel example 2: Simulating $\pi$
+
+
+*   We know that $\pi = \frac{A}{r^2}$. We approximate it by randomly adding
+    points $x$ to a square of size 2 centered at the origin.
+
+*   So, we approximate $\pi$ as $\Pr\{\|x\| \leq 1\}\times 2^2$
+
+```{r, echo=FALSE, dev='jpeg', dev.args=list(quality=100), fig.width=6, fig.height=6, out.width='300px', out.height='300px'}
+set.seed(1231)
+p    <- matrix(runif(5e3*2, -1, 1), ncol=2)
+pcol <- ifelse(sqrt(rowSums(p^2)) <= 1, adjustcolor("blue", .7), adjustcolor("gray", .7))
+plot(p, col=pcol, pch=18)
+```
+
+The R code to do this
+
+```{r simpi, echo=TRUE}
+pisim <- function(i, nsim) {  # Notice we don't use the -i-
+  # Random points
+  ans  <- matrix(runif(nsim*2), ncol=2)
+  
+  # Distance to the origin
+  ans  <- sqrt(rowSums(ans^2))
+  
+  # Estimated pi
+  (sum(ans <= 1)*4)/nsim
+}
+```
+
+## parallel example 2: Simulating $\pi$ (cont'd)
+
+```{r parallel-ex2, echo=TRUE, cache=TRUE}
+
+# Setup
+cl <- makePSOCKcluster(4L)
+clusterSetRNGStream(cl, 123)
+
+# Number of simulations we want each time to run
+nsim <- 1e5
+
+# We need to make -nsim- and -pisim- available to the
+# cluster
+clusterExport(cl, c("nsim", "pisim"))
+
+# Benchmarking: parSapply and sapply will run this simulation
+# a hundred times each, so at the end we have 1e5*100 points
+# to approximate pi
+rbenchmark::benchmark(
+  parallel = parSapply(cl, 1:100, pisim, nsim=nsim),
+  serial   = sapply(1:100, pisim, nsim=nsim), replications = 1
+)[,1:4]
+
+```
+
+```{r printing-and-stop, cache=TRUE}
+ans_par <- parSapply(cl, 1:100, pisim, nsim=nsim)
+ans_ser <- sapply(1:100, pisim, nsim=nsim)
+stopCluster(cl)
+```
+
+```{r, echo=FALSE}
+c(par = mean(ans_par), ser = mean(ans_ser), R = pi)
+```
+
+## Slurm Example 1
+
+*   Suppose that we would like to maximize/minimize a function using an stochastic
+    optimization algorithm, namely, the [**Artificial Bee Colony algorithm**](http://mf.erciyes.edu.tr/abc/index.htm){target="_blank"}
+    
+*   The following R script ([01-slurm-abcoptim.R](examples/01-slurm-abcoptim.R){target="_blank"}) was designed to work with Slurm
+    (it requires the R package ABCoptim [@ABCoptim])
+    
 ```r
-dataset <- read.csv("mydata.csv")
-```
+# Include this to tell where everything will be living at
+.libPaths("~/R/x86_64-pc-linux-gnu-library/3.4/")
 
-```sas
-PROC IMPORT DATAFILE = "mydata.csv" GETNAMES = yes OUT = dataset REPLACE;
-  getmames = yes;
-run;
-```
+# Default CRAN mirror from where to download R packages
+options(repos =c(CRAN="https://cloud.r-project.org/"))
 
-\normalsize
+# You need to have the ABCoptim R package
+library(ABCoptim)
 
-You be the judge...
-
-
-## Ranting about R vs SAS
-
-Myth: _"SAS is required for drug tests by the FDA"_
-
-
----
-
-![](fig/wrong.gif){style="width:800px;"}
-
-## Ranting about R vs SAS 
-
-Myth: _"SAS is required for drug tests by the FDA"_
-
-Reallity:
-
-> FDA <span style="font-size:50px;font-weight:bold;">does not require use of any specific software for statistical analyses</span>, and statistical software
-is not explicitly discussed in Title 21 of the Code of Federal Regulations [e.g., in 21CFR part
-11]. However, the software package(s) used for statistical analyses should be fully documented
-in the submission, including version and build identification.
---- [FDA, May 6, 2015](https://www.fda.gov/downloads/forindustry/datastandards/studydatastandards/ucm587506.pdf)
-
-
----
-
-![](fig/open-fda.png){style="width:75%"}
-
-
-## Ranting about R vs SAS
-
-Myth: _"R is cool... but it can't handle data out-of-memory like SAS"_
-
----
-
-![](fig/you-sure.gif){style="width:75%;"}
-
-## Ranting about R vs SAS
-
-Myth: _"R is cool... but it can't handle data out-of-memory like SAS"_
-
-Reallity: Just take a look at the [CRAN Task View for High Performance and Parallel Computing in R](https://cran.r-project.org/web/views/HighPerformanceComputing.html)
-
-[biglm](https://cran.r-project.org/package=biglm),
-[ff](https://cran.r-project.org/package=ff),
-[bigmemory](https://cran.r-project.org/package=bigmemory),
-[HadoopStreaming](https://cran.r-project.org/package=HadoopStreaming),
-[speedglm](https://cran.r-project.org/package=speedglm),
-[biglars](https://cran.r-project.org/package=biglars),
-[MonetDB.R](https://cran.r-project.org/package=MonetDB.R),
-[ffbase](https://cran.r-project.org/package=ffbase),
-[LaF](https://cran.r-project.org/package=LaF),
-[bigstatsr](https://cran.r-project.org/package=bigstatsr)
-
-## Ranting about R vs SAS
-
-Myth: _"SAS has a higher demand than R in the job market"_
-
----
-
-![](fig/top-analytics-data-science-machine-learning-software-2018-3yrs-539.jpg){style="width:50%;"}
-
-Source: [KDnuggets](https://www.kdnuggets.com/2018/05/poll-tools-analytics-data-science-machine-learning-results.html)
-
----
-
-![](fig/by_industry_graph-1-675x675.png){style="width:50%;"}
-
-Source: [Stackoverflow](https://stackoverflow.blog/2017/10/10/impressive-growth-r/)
-
----
-
-As pointed out by [David Smith](https://ropensci.org/blog/2017/10/13/rprofile-david-smith/){target="_blank"} on ["Job trends for R and Python"](http://blog.revolutionanalytics.com/2017/02/job-trends-for-r-and-python.html){target="_blank"}
-
-![](fig/indeed-r-python-sas.png){class="img-std"}
-
-Source: [indeed.com's Job trends](https://www.indeed.com/jobtrends/q-R-statistics-q-SAS-statistics-q-python-statistics.html){target="_blank"}
-
----
-
-![](fig/data-science-r-python-sas.png){class="img-std"}
-
-Source: [indeed.com's Job trends](https://www.indeed.com/jobtrends/q-R-statistics-q-SAS-statistics-q-python-statistics.html){target="_blank"}
-
-## Ranting about R vs SAS
-
-1.  <p class="fragment fade-in">_"SAS is uglier~~easier~~ than R"_</p>
-
-2.  <p class="fragment fade-in">_"SAS is **NOT** required for drug tests by the FDA"_</p>
-
-3.  <p class="fragment fade-in">_"R **is cool** ~~... but it can't~~ **AND CAN** handle data out-of-memory like SAS"_</p>
-
-4.  <p class="fragment fade-in">_"SAS has a ~~higher~~ **LOWER** demand than R in the job market"_</p>
-
-## Social Mimicry
-
-Context:
-
--   <p class="fragment fade-in" data-fragment-index=1>We observe families during a meal.</p>
-
--   <p class="fragment fade-in" data-fragment-index=2>For each family member, we timestamp the moment at which she/he took a bite (took the fork/spoon filled with food to her/his mouth).</p>
-
--   <p class="fragment fade-in" data-fragment-index=3>Theory predicts the emergence of classes of automatic behavior as a response to others' bites (cues)</p>
-
-Two questions:
-
-<span class="fragment fade-in" data-fragment-index=4>Is there any synchrony (bite rate) amongst family members?</span>
-
-<span class="fragment fade-in"><span class="fragment fade-out">Is there any mimicry amonst family members?</span></span>
-
----
-
-```{r example-of-dyad, echo=FALSE, cache=FALSE, fig.align='center', fig.cap="Simulated dyad", fig.height=4, out.width = "600px"}
-set.seed(21) 
-plot(biteme::simulate_dyad(rates = c(.8, .5)), lwd=10)
-```
-    
-So we have, $T_1 = \{t_1^1, t_1^2, t_1^3, t_1^4, t_1^5, t_1^6\}$, and
-$T_2 = \{t_2^1, t_2^2, t_2^3\}$
-    
-$$
-R(t_2^2, T_1) = t_1^3
-$$
-
----
-
-Mathematically, we can describe the data as follows:
-
-* For each individual $i$ we observe a vector $T_i \equiv\{t^i_1, t^i_2,\dots\}$ with $i$'s bites timestamps. You can think of this as a Poisson process.
-
-* Let $n_i$ denote the size of $T_i$.
-
-* Also, define the function $R:T_i\times T_j\mapsto T_j$ as that which returns the **leftmost close** bite of $j$ to $i$, i.e. the inmediate bite of $j$ before $i$ took a particular bite:
-
-$$
-R(t_i^n, T_j) = \left\{\begin{array}{l}
-\mbox{Undefined},\quad\mbox{if }(\forall t_j^n\in T_j) \exists t_i^m\in T_i \mbox{ s.th. }t_i^m\in(t_j^n,t_i^n) \\
-\arg\max_{\{t_j^n:t_j^n\in T_j, t_j^n \leq t_i^n\}}t_i^n - t_j^n,\quad\mbox{otherwise.}
-\end{array}\right.
-$$
-  
-  For now we will focus on the cases where this is defined.
-
----
-
-*   A possible statistic to test this is to take the average time gap between $i$ and $j$'s
-    bite, formally, assuming $R(t, T_j)$ is defined for all $t\in T_i$, we have
-    
-    $$
-    S_{ij} = \frac{1}{n_i}\sum_{t\in T_i}(t - R(t, T_j))
-    $$
-
-*   Given the data structure, we can use permutations to build a null distribution.
-
-
-## Permuting time intervals
-
-*   Imagine we observe the followin: $T_{a} = \{0, 1, 3, 6\}$, then we have 
-    $3! = 6$ total permutations as what is swapped are time intervals.
-    
-```{r example-permutations, echo=FALSE, cache=FALSE, fig.cap="Distribution of permuted set (50,000 permutations).", out.width="450px"}
-library(biteme)
-# Function to encode the shuffle
-shuffle_wrap <- function(dat) {
-  paste0(shuffle_bites(dat)[,1], collapse="")
+fun <- function(x) {
+  -cos(x[1])*cos(x[2])*exp(-((x[1] - pi)^2 + (x[2] - pi)^2))
 }
 
-# Fake data. This has only 6 possible permutations
-dat <- cbind(
-  time = c(0, 1, 3, 6),
-  ids  = rep(1, 4)
-)
+ans <- abc_optim(rep(0,2), fun, lb=-10, ub=10, criter=50)
 
-# Tabulating and plotting the permutations
-n <- 5e4
-set.seed(111224)
-ans <- replicate(n, shuffle_wrap(dat))
-ans <- table(ans)/n
-
-# ans
-# ans
-#    0136    0146    0236    0256    0346    0356
-# 0.16842 0.16622 0.16618 0.16794 0.16566 0.16558
-
-# Plotting the distribution
-barplot(ans)
+saveRDS(
+   ans,
+   file = paste0(
+      "~/hpc-with-r/examples/01-slurm-abcoptim-",
+      Sys.getenv("SLURM_JOB_ID"),                 # SLURM ENV VAR
+      "-",
+      Sys.getenv("SLURM_ARRAY_TASK_ID"),          # SLURM ENV VAR
+      ".rds"
+))
 ```
 
----
-
-![](fig/perm-test.png){style="width: 75%;"}
-
-
-## Questions for Part 1
-
--   <p class="fragment fade-in">Going back to the case of <strong>Undefined</strong> left most close time, how can we use that information in our model? (example with 1,000 vs 2)</p>
-
--   <p class="fragment fade-in">In some cases, subjects take relatively long pauses during the meal. What should we do with the *solo* time of the other dyad?</p>
-
--   <p class="fragment fade-in">Another approach could be using a EM algorithm (the missing data is the failed mimic bite), and look at the p-values of the missing data parameter (this implies modeling the data as a Poisson process with a probit component [to bite or not to bite]).</p>
-
-
-## Part 2: Small Network
-
-Context
-
-*   <p class="fragment fade-in">We observe groups of individuals, teams performing different tasks.</p>
-
-*   <p class="fragment fade-in">Each group is composed of between 3 to 5 members.</p>
-
-*   <p class="fragment fade-in">The core question</p>
-
-> <p class="fragment fade-in">How does your perception of the social network (your cognitive social structure)
-in which you are embedded impacts your and your network's performance?</p>
-
-## Cognitive Social Structures
-
-> Alice, Bob, and Charlie are all friends. Thus, there are three separate representations of their network. If they each believe they are friends with the other two, but that the other two are not friends, then all three representations are distinct. -- From [wikipedia](https://en.wikipedia.org/wiki/Cognitive_social_structures#Overview)
+*   Notice that we are using `SLURM_JOB_ID`, and `SLURM_ARRAY_TASK_ID` to save
+    our results (both environment variables created by slurm)
 
 ---
 
-*   Our current approach: We defined an statistic that measures some sort of correlation:
+*   To run the previous R script, we can use the following bash file ([01-slurm-abcoptim.sh](examples/01-slurm-abcoptim.sh){target="_blank"})
     
-    $$
-    S_T\equiv \frac{1}{n(n-1)}\sum_{\{(i, j):(i,j)\in T, i<j\}}H(i,j)
-    $$
+    ```bash
+    #!/bin/bash 
+    #SBATCH --tasks=1
+    #SBATCH --array=1-3
+    #SBATCH --job-name=01-slurm-abcoptim
+    #SBATCH --output=01-slurm-abcoptim-%A_%a.out
     
-    Where $H(i,j)$ is the hamming distance between $i$ and $j$'s perceived social structures.
+    source /usr/usc/R/3.4.0/setup.sh
+    Rscript --vanilla ~/hpc-with-r/examples/01-slurm-abcoptim.R 
+    ```
 
-*   $S_T\in[0,1]$, where 1 means _perfect correlation_ (all subjects have the exact same perception of the graph.)
+*   Here we are taking advantage of the Slurm Arrays, so we are running the same
+    R-script in 3 instances (`--array=1-3`)
+    
+*   To run the job we just need to type
+    
+    ```bash
+    $ sbatch 01-slurm-abcoptim.sh
+    ```
 
-*   I call this cognitive dissonance (is this OK prof. de la Haye?).
+*   Make sure you modify the file paths so that it matches your files!
+    
+<div align="center">
+<p style="font-size:40px">Now you try it!</p>
+</div>
 
-## A simple example
 
-We will perform the following simulation experiment
+## RcppArmadillo + OpenMP + Slurm: Using the `rslurm` package
 
-1.  Draw a random graph of size $n$
+*   The [`rslurm` package ](https://CRAN.R-project.org/package=rslurm){target="_blank"} [@rslurm] provides a wrapper of Slurm in R.
 
-2.  Generate $n$ replicates of such graph, and rewire the endpoints with probability $p$
+*   Without the need of knowing much about the syntax of `slurm`, this R package does the following:
+    
+    1.  Writes an R source file that sets up each node with your current config (packages, libpath, etc.). The outputs are stored in a known folder so these can be fetched out later.
+    
+    2.  Writes a bash file with the call to `sbatch` (you can specify options).
+    
+    3.  Executes the bash file and returns the jobid (you can query its status interatively).
+        
+        Here is a simple example with our `sim_pi` function (so we are mixing OpenMP with Slurm!):
+        
+        ```r
+        library(rslurm)
+        
+        # How many nodes are we going to be using
+        nnodes <- 2L
+        
+        # The slurm_apply function is what makes all the work
+        sjob <- slurm_apply(
+          # We first define the job as a function
+          f = function(n) {
+            
+            # Compiling Rcpp
+            Rcpp::sourceCpp("~/simpi.cpp")
+            
+            # Returning pi
+            sim_pi(1e9, cores = 8, seed = n*100)
+            
+          },
+          # The parameters that `f` receives must be passed as a data.frame
+          params        = data.frame(n = 1:nnodes), jobname = "sim-pi",
+          
+          # How many cpus we want to use (this when calling mcapply)
+          cpus_per_node = 1,
+          
+          # Here we are asking for nodes with 8 CPUS
+          slurm_options = list(`cpus-per-task` = 8),
+          nodes         = nnodes,
+          submit        = TRUE
+        )
+        
+        # We save the image so that later we can use the `sjob` object to retrieve the
+        # results
+        save.image("~/sim-pi.rda")
+        ```
 
-3.  Given the set of $n$ graphs, compute $S_T$
+<div align="center">
+<p style="font-size:40px">Now you try it!</p>
+</div>
 
----
 
-```{r net-sims}
-library(magrittr)
+## Thanks!
 
-set.seed(1)
-worst <- list(
-  matrix(rep(0,16), ncol=4),
-  matrix(rep(1,16), ncol=4) %>% `diag<-`(0),
-  matrix(rep(0,16), ncol=4),
-  matrix(rep(1,16), ncol=4) %>% `diag<-`(0)
-)
-
-best <- runif(16) %>%
-  `>`(.6) %>%
-  as.integer %>%
-  matrix(ncol=4) %>%
-  list %>% rep(4)
+```{r session, echo=FALSE}
+sessionInfo()
 ```
 
-```{r computing, eval=FALSE}
+## See also
 
-statistic(best)
-statistic(worst)
-```
+*   [Package parallel](https://stat.ethz.ch/R-manual/R-devel/library/parallel/doc/parallel.pdf) 
+*   [Using the iterators package](https://cran.r-project.org/web/packages/iterators/vignettes/iterators.pdf)
+*   [Using the foreach package](https://cran.r-project.org/web/packages/foreach/vignettes/foreach.pdf)
+*   [32 OpenMP traps for C++ developers](https://software.intel.com/en-us/articles/32-openmp-traps-for-c-developers)
+*   [The OpenMP API specification for parallel programming](http://www.openmp.org/)
+*   ['openmp' tag in Rcpp gallery](gallery.rcpp.org/tags/openmp/)
+*   [OpenMP tutorials and articles](http://www.openmp.org/resources/tutorials-articles/)
 
-
-```{r experiments, cache=TRUE}
-source("netcor-test.R")
-sizes <- c(3, 4, 5)
-nsims <- 1000
-prob  <- c(.1, .25, .5)
-
-perturb <- function(x, p) {
-  
-  p <- as.integer(runif(length(x)) < p)
-  x[] <- x[]*(1-p) + (1 - x[])*p
-  
-  x
-  
-}
-
-# Function to compute simulations
-simgraph <- function(n, p) {
-  
-  # Baseline graph
-  x <- (runif(n*n) > .5) %>% as.integer %>%
-    matrix(ncol=n)
-  
-  # Generating networks and computing statistics
-  ans<-replicate(n, netdiffuseR::rewire_graph(x, p, both.ends = TRUE), simplify = FALSE)  %>%
-    statistic()
-  ans$score
-}
-
-combinations <- expand.grid(n = sizes, p = prob)
-
-set.seed(2123)
-library(magrittr)
-cl <- parallel::makeForkCluster(9)
-ans <- parallel::clusterMap(cl, function(n, p) {
-  data.frame(
-    size  = n,
-    prob  = p,
-    stat  = replicate(nsims, simgraph(n, p)),
-    score = rbinom(nsims, 5, 1-p)
-  )
-  }, n = combinations$n, p=combinations$p, .scheduling = "static"
-  )
-parallel::stopCluster(cl)
-```
-
-```{r plot-experiments, out.width="600px", fig.cap="Distribution of $S_T$"}
-ans <- do.call(rbind, ans)
-ans$size <- paste("Size:", ans$size)
-ans$prob <- paste("Pr():", ans$prob)
-boxplot(
-  stat ~ size*prob, data=ans, sep="\n", las=2
-  )
-
-```
-
----
-
-A nïve way to correct this, is using an orthogonal projection matrix on $n$, in other words, remove all that is correlated:
-
-$$
-S_T' = \mathbf{M}_n S_T
-$$
-
-Where $\mathbf{M}_n = (I_n - n(n^\mathbf{t}n)n^\mathbf{t})$
-
----
-
-```{r plot-experiments2, out.width="600px", fig.cap="Distribution of $S_T$ using the orthogonal projection onto $n$."}
-ans$n <- as.integer(gsub(".+\\s+", "", ans$size))
-
-mod <- lm(stat ~0+ n + I(n^2) + I(n^3), data = ans)
-ans$stat_adj <- ans$stat - predict(mod, type = "response")
-boxplot(
-  stat_adj ~ size*prob, data=ans, sep="\n", las=2
-  )
-```
-
-
-
-## Questions
-
--   <p class="fragment fade-in">How can we correct the small sample bias?</p>
-
--   <p class="fragment fade-in">Since networks are small, perhaps we could approximate via simulation (brute-force). Opinons?</p>
-
--   <p class="fragment fade-in">An alternative, use exact distributions. We could in principle assume that dyads are independent, and take each observed 0/1 distributed bernoulli with parameter $p_i$, where $i$ index individuals. We would still need to make assumptions to compute $p_i$.</p>
-
+For more, checkout the [CRAN Task View on HPC](https://cran.r-project.org/web/views/HighPerformanceComputing.html){target="_blank"}
