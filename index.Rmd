@@ -98,14 +98,20 @@ nnodes <- 4L
 *   Why use OpenMP if GPU is _suited to compute-intensive operations_? Well, mostly because
     OpenMP is **VERY** easy to implement (easier than CUDA, which is the easiest way to use GPU).
 
+
+## {data-background=#515A5A}
+
+<text style="color:white;">Let's think before we start...</text>
+
+![](https://media.giphy.com/media/Dwclsfe6Gb91m/giphy.gif){style="width:500px"}
+
+<text style="color:white;">When is it a good idea to go HPC?</text>
+
 ## When is it a good idea?
 
 ```{r good-idea, echo=FALSE, fig.cap="Ask yourself these questions before jumping into HPC!", fig.align='center', out.width="85%"}
 knitr::include_graphics("fig/when_to_parallel.svg")
 ```
-
-
-    
 
 ## Parallel computing in R
 
@@ -113,15 +119,31 @@ While there are several alternatives (just take a look at the
 [High-Performance Computing Task View](https://cran.r-project.org/web/views/HighPerformanceComputing.html)),
 we'll focus on the following R-packages for **explicit parallelism**:
 
-*   **parallel**: R package that provides '[s]upport for parallel computation,
+*   [**parallel**](https://cran.r-project.org/package=parallel): R package that provides '[s]upport for parallel computation,
     including random-number generation'.
 
-*   **rslurm**: 'Send long-running or parallel jobs to a Slurm workload manager (i.e. cluster) using the slurm_call or slurm_apply functions.'
+*   [**foreach**](https://cran.r-project.org/package=foreach): R package for 'general iteration over elements' in parallel fashion.
+
+*   [**future**](https://cran.r-project.org/package=future): '[A] lightweight and
+    unified Future API for sequential and parallel processing of R
+    expression via futures.' (won't cover here)
     
 Implicit parallelism, on the other hand, are out-of-the-box tools that allow the
 programmer not to worry about parallelization, e.g. such as
 [**gpuR**](https://cran.r-project.org/package=gpuR) for Matrix manipulation using
 GPU, [**tensorflow**](https://cran.r-project.org/package=tensorflow)
+
+---
+
+And there's also a more advanced set of options
+
+*   [**Rcpp**](https://cran.r-project.org/package=Rcpp) + [OpenMP](https://www.openmp.org):
+    [Rcpp](https://cran.r-project.org/package=Rcpp) is an R package for integrating
+    R with C++, and OpenMP is a library for high-level parallelism for C/C++ and
+    Fortran.
+
+*   A ton of other type of resources, notably the tools for working with 
+    batch schedulers such as Slurm, HTCondor, etc.
 
 ## Parallel workflow
 
@@ -179,13 +201,19 @@ GPU, [**tensorflow**](https://cran.r-project.org/package=tensorflow)
 Take a look at the [foreach](https://cran.r-project.org/package=foreach),
 [Rmpi](https://cran.r-project.org/package=Rmpi), and
 [future](https://cran.r-project.org/package=future) R packages.
-    
-## parallel example 1: Parallel RNG
+
+## {data-background=#515A5A}
+
+<text style="color:white;">Let's get started!</text>
+
+## Ex 1: Parallel RNG with `makePSOCKCluster`
+
 
 ```{r parallel-ex-psock, echo=TRUE}
 # 1. CREATING A CLUSTER
 library(parallel)
-cl <- makePSOCKcluster(nnodes)    
+nnodes <- 4L
+cl     <- makePSOCKcluster(nnodes)    
 
 # 2. PREPARING THE CLUSTER
 clusterSetRNGStream(cl, 123) # Equivalent to `set.seed(123)`
@@ -210,7 +238,7 @@ stopCluster(cl)
 all.equal(ans0, ans1) # All equal!
 ```
 
-## parallel example 1: Parallel RNG (cont'd)
+## Ex 2: Parallel RNG with `makeForkCluster`
 
 In the case of `makeForkCluster`
 
@@ -219,14 +247,15 @@ In the case of `makeForkCluster`
 library(parallel)
 
 # The fork cluster will copy the -nsims- object
-nsims <- 1e3
-cl    <- makeForkCluster(2)    
+nsims  <- 1e3
+nnodes <- 4L
+cl     <- makeForkCluster(nnodes)    
 
 # 2. PREPARING THE CLUSTER
 clusterSetRNGStream(cl, 123)
 
 # 3. DO YOUR CALL
-ans <- do.call(cbind, parLapply(cl, 1:2, function(x) {
+ans <- do.call(cbind, parLapply(cl, 1:nnodes, function(x) {
   runif(nsims) # Look! we use the nsims object!
                # This would have fail in makePSOCKCluster
                # if we didn't copy -nsims- first.
@@ -242,7 +271,7 @@ Again, we want to make sure this is reproducible
 ```{r parallel-ex-fork-cont, echo=TRUE}
 # Same sequence with same seed
 clusterSetRNGStream(cl, 123)
-ans1 <- var(do.call(cbind, parLapply(cl, 1:2, function(x) runif(nsims))))
+ans1 <- var(do.call(cbind, parLapply(cl, 1:nnodes, function(x) runif(nsims))))
 
 ans0 - ans1 # A matrix of zeros
 
@@ -256,13 +285,10 @@ stopCluster(cl)
 knitr::include_graphics("fig/what-did-you-said.gif")
 ```
 
-
-<!-- ![](){style="width:600px;"} -->
-
-<p style="color:white;">Well, if you are a MacOS/Linux user, there's a simplier way of doing this...</p>
+<text style="color:white;">Well, if you are a MacOS/Linux user, there's a simplier way of doing this...</text>
 
 
-## parallel example 1: Parallel RNG (cont'd 2)
+## Ex 3: Parallel RNG with `mclapply` (Forking on the fly)
 
 In the case of `mclapply`, the forking (cluster creation) is done on the fly!
 
@@ -271,25 +297,27 @@ In the case of `mclapply`, the forking (cluster creation) is done on the fly!
 library(parallel)
 
 # The fork cluster will copy the -nsims- object
-nsims <- 1e3
+nsims  <- 1e3
+nnodes <- 4L
+# cl     <- makeForkCluster(nnodes) # mclapply does it on the fly
 
 # 2. PREPARING THE CLUSTER
 set.seed(123) 
 
 # 3. DO YOUR CALL
-ans <- do.call(cbind, mclapply(1:2, function(x) runif(nsims)))
+ans <- do.call(cbind, mclapply(1:nnodes, function(x) runif(nsims)))
 
 (ans0 <- var(ans))
 ```
 
 ---
 
-Again, we want to make sure this is reproducible
+Once more, we want to make sure this is reproducible
 
 ```{r parallel-ex-mclapply-cont, echo=TRUE}
 # Same sequence with same seed
 set.seed(123) 
-ans1 <- var(do.call(cbind, mclapply(1:2, function(x) runif(nsims))))
+ans1 <- var(do.call(cbind, mclapply(1:nnodes, function(x) runif(nsims))))
 
 ans0 - ans1 # A matrix of zeros
 
@@ -297,9 +325,133 @@ ans0 - ans1 # A matrix of zeros
 # stopCluster(cl) no need of doing this anymore
 ```
 
+## Ex 5: RcppArmadillo + OpenMP
+
+```{Rcpp dist-code, cache=TRUE, echo=TRUE}
+#include <omp.h>
+#include <RcppArmadillo.h>
+
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::plugins(openmp)]]
+
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+arma::mat dist_par(const arma::mat & X, int cores = 1) {
+  
+  // Some constants
+  int N = (int) X.n_rows;
+  int K = (int) X.n_cols;
+  
+  // Output
+  arma::mat D(N,N);
+  D.zeros(); // Filling with zeros
+  
+  // Setting the cores
+  omp_set_num_threads(cores);
+  
+#pragma omp parallel for shared(D, N, K, X) default(none)
+  for (int i=0; i<N; ++i)
+    for (int j=0; j<i; ++j) {
+      for (int k=0; k<K; k++) 
+        D.at(i,j) += pow(X.at(i,k) - X.at(j,k), 2.0);
+      
+      // Computing square root
+      D.at(i,j) = sqrt(D.at(i,j));
+      D.at(j,i) = D.at(i,j);
+    }
+      
+  
+  // My nice distance matrix
+  return D;
+}
+```
+
 ---
 
-## parallel example 2: Simulating $\pi$
+```{r dist-dat, dependson=-1, echo=TRUE, cache=TRUE}
+# Simulating data
+set.seed(1231)
+K <- 1000
+n <- 500
+x <- matrix(rnorm(n*K), ncol=K)
+
+# Are we getting the same?
+table(as.matrix(dist(x)) - dist_par(x, 4)) # Only zeros
+```
+
+---
+
+```{r dist-benchmark, echo=TRUE, cache=TRUE}
+# Benchmarking!
+rbenchmark::benchmark(
+  dist(x),                 # stats::dist
+  dist_par(x, cores = 1),  # 1 core
+  dist_par(x, cores = 2),  # 2 cores
+  dist_par(x, cores = 4), #  4 cores
+  replications = 10, order="elapsed"
+)[,1:4]
+```
+
+## Ex 6: The future
+
+```{r future, echo=TRUE, collapse=TRUE, cache=TRUE}
+library(future)
+plan(multicore)
+
+# We are creating a global variable
+a <- 2
+
+# Creating the futures has only the overhead (setup) time
+system.time({
+  x1 %<-% {Sys.sleep(3);a^2}
+  x2 %<-% {Sys.sleep(3);a^3}
+})
+
+# Let's just wait 5 seconds to make sure all the cores have returned
+Sys.sleep(3)
+system.time({
+  print(x1)
+  print(x2)
+})
+```
+
+
+## {style="text-align:center!important;"}
+
+```{r thanks, out.width="300px"}
+knitr::include_graphics("fig/speed.gif")
+```
+
+### Thanks!
+
+<p style="text-align:center!important;">
+`r icon::fa("github")`  [gvegayon](https://github.com/gvegayon/) <br>
+`r icon::fa("twitter")`  [\@gvegayon](https://twitter.com/gvegayon) <br>
+`r icon::fa("home")`  [ggvy.cl](https://ggvy.cl)<br><br>
+<text style="color:gray;font-size:80%">Presentation created with [revealjs](https:cran.r-project.org/package=revealjs)</text>
+</p>
+
+## See also
+
+*   [Package parallel](https://stat.ethz.ch/R-manual/R-devel/library/parallel/doc/parallel.pdf) 
+*   [Using the iterators package](https://cran.r-project.org/web/packages/iterators/vignettes/iterators.pdf)
+*   [Using the foreach package](https://cran.r-project.org/web/packages/foreach/vignettes/foreach.pdf)
+*   [32 OpenMP traps for C++ developers](https://software.intel.com/en-us/articles/32-openmp-traps-for-c-developers)
+*   [The OpenMP API specification for parallel programming](http://www.openmp.org/)
+*   ['openmp' tag in Rcpp gallery](gallery.rcpp.org/tags/openmp/)
+*   [OpenMP tutorials and articles](http://www.openmp.org/resources/tutorials-articles/)
+
+For more, checkout the [CRAN Task View on HPC](https://cran.r-project.org/web/views/HighPerformanceComputing.html){target="_blank"}
+
+## Session info
+
+```{r session, echo=FALSE}
+sessionInfo()
+```
+
+
+## Bonus track 1: Simulating $\pi$
 
 
 *   We know that $\pi = \frac{A}{r^2}$. We approximate it by randomly adding
@@ -313,6 +465,8 @@ p    <- matrix(runif(5e3*2, -1, 1), ncol=2)
 pcol <- ifelse(sqrt(rowSums(p^2)) <= 1, adjustcolor("blue", .7), adjustcolor("gray", .7))
 plot(p, col=pcol, pch=18)
 ```
+
+---
 
 The R code to do this
 
@@ -329,7 +483,9 @@ pisim <- function(i, nsim) {  # Notice we don't use the -i-
 }
 ```
 
-## parallel example 2: Simulating $\pi$ (cont'd)
+
+
+## Bonus track 1: Simulating $\pi$ (cont'd)
 
 ```{r parallel-ex2, echo=TRUE, cache=TRUE}
 
@@ -354,6 +510,8 @@ rbenchmark::benchmark(
 
 ```
 
+---
+
 ```{r printing-and-stop, cache=TRUE}
 ans_par <- parSapply(cl, 1:100, pisim, nsim=nsim)
 ans_ser <- sapply(1:100, pisim, nsim=nsim)
@@ -364,7 +522,7 @@ stopCluster(cl)
 c(par = mean(ans_par), ser = mean(ans_ser), R = pi)
 ```
 
-## Slurm Example 1
+## Bonus track 2: HPC with Slurm
 
 *   Suppose that we would like to maximize/minimize a function using an stochastic
     optimization algorithm, namely, the [**Artificial Bee Colony algorithm**](http://mf.erciyes.edu.tr/abc/index.htm){target="_blank"}
@@ -433,74 +591,3 @@ saveRDS(
 </div>
 
 
-## RcppArmadillo + OpenMP + Slurm: Using the `rslurm` package
-
-*   The [`rslurm` package ](https://CRAN.R-project.org/package=rslurm){target="_blank"} [@rslurm] provides a wrapper of Slurm in R.
-
-*   Without the need of knowing much about the syntax of `slurm`, this R package does the following:
-    
-    1.  Writes an R source file that sets up each node with your current config (packages, libpath, etc.). The outputs are stored in a known folder so these can be fetched out later.
-    
-    2.  Writes a bash file with the call to `sbatch` (you can specify options).
-    
-    3.  Executes the bash file and returns the jobid (you can query its status interatively).
-        
-        Here is a simple example with our `sim_pi` function (so we are mixing OpenMP with Slurm!):
-        
-        ```r
-        library(rslurm)
-        
-        # How many nodes are we going to be using
-        nnodes <- 2L
-        
-        # The slurm_apply function is what makes all the work
-        sjob <- slurm_apply(
-          # We first define the job as a function
-          f = function(n) {
-            
-            # Compiling Rcpp
-            Rcpp::sourceCpp("~/simpi.cpp")
-            
-            # Returning pi
-            sim_pi(1e9, cores = 8, seed = n*100)
-            
-          },
-          # The parameters that `f` receives must be passed as a data.frame
-          params        = data.frame(n = 1:nnodes), jobname = "sim-pi",
-          
-          # How many cpus we want to use (this when calling mcapply)
-          cpus_per_node = 1,
-          
-          # Here we are asking for nodes with 8 CPUS
-          slurm_options = list(`cpus-per-task` = 8),
-          nodes         = nnodes,
-          submit        = TRUE
-        )
-        
-        # We save the image so that later we can use the `sjob` object to retrieve the
-        # results
-        save.image("~/sim-pi.rda")
-        ```
-
-<div align="center">
-<p style="font-size:40px">Now you try it!</p>
-</div>
-
-
-## Thanks!
-
-```{r session, echo=FALSE}
-sessionInfo()
-```
-
-## See also
-
-*   [Package parallel](https://stat.ethz.ch/R-manual/R-devel/library/parallel/doc/parallel.pdf) 
-*   [Using the iterators package](https://cran.r-project.org/web/packages/iterators/vignettes/iterators.pdf)
-*   [Using the foreach package](https://cran.r-project.org/web/packages/foreach/vignettes/foreach.pdf)
-*   [32 OpenMP traps for C++ developers](https://software.intel.com/en-us/articles/32-openmp-traps-for-c-developers)
-*   [The OpenMP API specification for parallel programming](http://www.openmp.org/)
-*   ['openmp' tag in Rcpp gallery](gallery.rcpp.org/tags/openmp/)
-*   [OpenMP tutorials and articles](http://www.openmp.org/resources/tutorials-articles/)
-
-For more, checkout the [CRAN Task View on HPC](https://cran.r-project.org/web/views/HighPerformanceComputing.html){target="_blank"}

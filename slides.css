@@ -11,13 +11,30 @@ p {
   border: 2px rgba(0, 0, 0, .5);
 }
 
+/* Source code */
+
+.reveal pre code {
+  max-height: 600px;
+}
+
 code.sourceCode {
   font-size: 90% !important;
 }
 
 code {
-  color: indigo;
+  color: #34495E;
 }
+
+/* Links */
+.reveal a, .reveal a:visited {
+  color: #186865;
+}
+
+.reveal a:hover {
+  color: #182c68;
+}
+
+/* Headers */
 .reveal h1 {
   font-weight: bold;
 }
