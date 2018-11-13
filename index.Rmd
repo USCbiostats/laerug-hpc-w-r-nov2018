@@ -1,7 +1,7 @@
 ---
 title: "A brief introduction to using R for high-performance computing"
 author: "George G. Vega Yon<br><a href=\"https://ggvy.cl\" target=\"_blank\" style=\"color: black;\">ggvy.cl</a><br>USC Integrative Methods of Analysis for Genetic Epidemiology (IMAGE)<br>Department of Preventive Medicine"
-date: "September 13, 2018"
+date: "November 12, 2018"
 output:
   revealjs::revealjs_presentation:
     self_contained: true
@@ -104,7 +104,7 @@ In raw terms
     networks.
     
 You may not have access to a supercomputer, but certainly HPC/HTC clusters are
-more accesible these days, e.g. AWS provides a service to create HPC clusters
+more accessible these days, e.g. AWS provides a service to create HPC clusters
 at a low cost (allegedly, since nobody understands how pricing works)
 
 ## GPU vs CPU
@@ -148,7 +148,7 @@ we'll focus on the following R-packages for **explicit parallelism**:
 *   [**Rcpp**](https://cran.r-project.org/package=Rcpp) + [OpenMP](https://www.openmp.org):
     [Rcpp](https://cran.r-project.org/package=Rcpp) is an R package for integrating
     R with C++, and OpenMP is a library for high-level parallelism for C/C++ and
-    Fortran.
+    FORTRAN.
     
 ---
 
@@ -175,7 +175,7 @@ batch schedulers such as [Slurm](http://slurm.schedmd.com), and
 
 <p style="color:white;text-align:center;">
 ![](https://media.giphy.com/media/l4FGwBxQ8VjtzNcv6/giphy.gif){style="width:400px;"}<br>
-Are you ready to speed up?
+U ready for speed?!?!?!
 </p>
 
 ## Parallel workflow
@@ -211,7 +211,7 @@ Are you ready to speed up?
 
 -   Child sessions are connected to the master session via Socket connections
 
--   Can be created outside of the current computer, i.e. accross multiple computers!
+-   Can be created outside of the current computer, i.e. across multiple computers!
 
 ## Types of clusters: Fork
 
@@ -309,7 +309,7 @@ stopCluster(cl)
 knitr::include_graphics("fig/what-did-you-said.gif")
 ```
 
-<text style="color:white;">Well, if you are a MacOS/Linux user, there's a simplier way of doing this...</text>
+<text style="color:white;">Well, if you are a Mac-OS/Linux user, there's a simpler way of doing this...</text>
 
 
 ## Ex 3: Parallel RNG with `mclapply` (Forking on the fly)
@@ -400,7 +400,7 @@ RcppArmadillo + OpenMP<br>=<br><img src="https://media.giphy.com/media/WUq1cg9K7
 
 ## RcppArmadillo and OpenMP workflow
 
-3.  Tell the compiler that you'll be running a block in parallel with openmp
+3.  Tell the compiler that you'll be running a block in parallel with OpenMP
     
     ```cpp
     #pragma omp [directives] [options]
@@ -493,6 +493,22 @@ rbenchmark::benchmark(
 ```
 
 ## Ex 6: The future
+
+*   [**future**](https://cran.r-project.org/package=future) is an R package that
+    was designed "to provide a very simple and uniform way of evaluating R
+    expressions asynchronously using various resources available to the user."
+    
+*   `future` class objects are either resolved or unresolved.
+
+*   If queried, **Resolved** values are return immediately, and **Unresolved** values
+    will block the process (i.e. wait) until it is resolved.
+    
+*   Futures can be parallel/serial, in a single (local or remote) computer, or
+    a cluster of them.
+    
+Let's see a brief example
+
+## Ex 6: The future (cont'd)
 
 ```{r future, echo=TRUE, collapse=TRUE, cache=TRUE}
 library(future)
